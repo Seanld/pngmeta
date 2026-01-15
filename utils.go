@@ -46,14 +46,13 @@ type PNGHeader struct {
 	Compression, Filter, Interlace uint8
 }
 
-func ParseIHDRChunk(chunkIHDR Chunk) (PNGHeader, error) {
-	var header PNGHeader
-	header.Width = binary.BigEndian.Uint32(chunkIHDR.Data[0:4])
-	header.Height = binary.BigEndian.Uint32(chunkIHDR.Data[4:8])
-	header.BitDepth = chunkIHDR.Data[8]
-	header.ColorType = chunkIHDR.Data[9]
-	header.Compression = chunkIHDR.Data[10]
-	header.Filter = chunkIHDR.Data[11]
-	header.Interlace = chunkIHDR.Data[12]
-	return header, nil
+func ParseIHDRChunk(chunkIHDR Chunk) (h PNGHeader) {
+	h.Width = binary.BigEndian.Uint32(chunkIHDR.Data[0:4])
+	h.Height = binary.BigEndian.Uint32(chunkIHDR.Data[4:8])
+	h.BitDepth = chunkIHDR.Data[8]
+	h.ColorType = chunkIHDR.Data[9]
+	h.Compression = chunkIHDR.Data[10]
+	h.Filter = chunkIHDR.Data[11]
+	h.Interlace = chunkIHDR.Data[12]
+	return
 }
