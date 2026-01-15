@@ -14,7 +14,7 @@ type PNG struct {
 }
 
 func LoadPNG(r io.Reader) (*PNG, error) {
-	chunks, err := LoadChunks(r)
+	chunks, err := ReadChunks(r)
 	if err != nil { return nil, err }
 
 	// Determine chunk section ranges based off

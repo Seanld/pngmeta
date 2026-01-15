@@ -3,55 +3,53 @@ package pngmeta
 import (
 	"encoding/binary"
 	"fmt"
+	"hash"
 	"hash/crc32"
 	"io"
 	"slices"
 )
 
-func LoadChunks(r io.Reader) (chunks []Chunk, err error) {
+func readSignature(r io.Reader) error {
 	// First, verify signature.
 	signature := make([]byte, 8)
-	_, err = r.Read(signature)
-	if err != nil { return nil, err }
+	_, err := r.Read(signature)
+	if err != nil { return err }
 	if !slices.Equal(signature, PNGSignature) {
-		return nil, fmt.Errorf("Not a PNG; invalid signature")
+		return fmt.Errorf("Not a PNG; invalid signature")
+	}
+	return nil
+}
+
+// Only read the IHDR chunk from the file, and nothing more.
+// Can be beneficial for high-performance metadata checking.
+func ReadIHDRChunk(r io.Reader) (c Chunk, err error) {
+	if err = readSignature(r); err != nil {
+		return Chunk{}, err
 	}
 
 	hasher := crc32.NewIEEE()
+	
+	c, err = ReadChunk(r, hasher)
+	if err != nil { return Chunk{}, err }
 
-	// Read chunks.
-	var chunk Chunk
+	if c.Type != TypeCodeIHDR {
+		return Chunk{}, fmt.Errorf("IHDR chunk expected at beginning, got %s", IntToChunkType(c.Type))
+	}
+
+	return
+}
+
+// Read all chunks from given reader.
+func ReadChunks(r io.Reader) (chunks []Chunk, err error) {
+	if err = readSignature(r); err != nil {
+		return nil, err
+	}
+	
+	hasher := crc32.NewIEEE()
+
 	for {
-		// Read chunk data length.
-		if err = binary.Read(r, binary.BigEndian, &chunk.Length); err != nil {
-			break
-		}
-
-		// Read chunk type.
-		if err = binary.Read(r, binary.BigEndian, &chunk.Type); err != nil {
-			break
-		}
-
-		// Read chunk data via prior length.
-		chunk.Data = make([]byte, chunk.Length)
-		_, err := io.ReadFull(r, chunk.Data)
+		chunk, err := ReadChunk(r, hasher)
 		if err != nil { return nil, err }
-
-		// Read chunk CRC checksum.
-		if err = binary.Read(r, binary.BigEndian, &chunk.CRC); err != nil {
-			break
-		}
-
-		// Verify checksum.
-		sum, err := chunk.Checksum(hasher)
-		if err != nil { return nil, err }
-
-		if sum != chunk.CRC {
-			return nil, fmt.Errorf(
-				"Checksum mismatch in %s chunk",
-				chunk.TypeName(),
-			)
-		}
 		
 		chunks = append(chunks, chunk)
 
@@ -59,6 +57,41 @@ func LoadChunks(r io.Reader) (chunks []Chunk, err error) {
 		if chunk.Type == TypeCodeIEND {
 			break
 		}
+	}
+
+	return
+}
+
+func ReadChunk(r io.Reader, hasher hash.Hash32) (c Chunk, err error) {
+	// Read chunk data length.
+	if err = binary.Read(r, binary.BigEndian, &c.Length); err != nil {
+		return Chunk{}, err
+	}
+
+	// Read c type.
+	if err = binary.Read(r, binary.BigEndian, &c.Type); err != nil {
+		return Chunk{}, err
+	}
+
+	// Read c data via prior length.
+	c.Data = make([]byte, c.Length)
+	_, err = io.ReadFull(r, c.Data)
+	if err != nil { return Chunk{}, err }
+
+	// Read c CRC checksum.
+	if err = binary.Read(r, binary.BigEndian, &c.CRC); err != nil {
+		return Chunk{}, err
+	}
+
+	// Verify checksum.
+	sum, err := c.Checksum(hasher)
+	if err != nil { return Chunk{}, err }
+
+	if sum != c.CRC {
+		return Chunk{}, fmt.Errorf(
+			"Checksum mismatch in %s c",
+			c.TypeName(),
+		)
 	}
 
 	return
