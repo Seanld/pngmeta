@@ -124,8 +124,8 @@ func (p *PNG) RegionSlice(region Region) []Chunk {
 }
 
 // Replaces the data for the first chunk of the given type, or adds
-// the chunk as a new chunk if one does not yet exist.
-func (p *PNG) SetChunk(chunkType uint32, data []byte, region Region) error {
+// as a new chunk if one does not yet exist.
+func (p *PNG) UpsertChunk(chunkType uint32, data []byte, region Region) error {
 	regionSlice := p.RegionSlice(region)
 
 	for i, c := range regionSlice {
