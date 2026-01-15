@@ -39,6 +39,7 @@ func NewPhysData(ppm float64) []byte {
 	return data
 }
 
+// See: https://exiftool.org/TagNames/PNG.html#ImageHeader
 type PNGHeader struct {
 	Width, Height uint32
 	BitDepth, ColorType uint8
@@ -47,7 +48,12 @@ type PNGHeader struct {
 
 func ParseIHDRChunk(chunkIHDR Chunk) (PNGHeader, error) {
 	var header PNGHeader
-
-	chunkIHDR, err := p.GetChunk(TypeCodeIHDR)
-	if err != nil { return PNGHeader{}, err }
+	header.Width = binary.BigEndian.Uint32(chunkIHDR.Data[0:4])
+	header.Height = binary.BigEndian.Uint32(chunkIHDR.Data[4:8])
+	header.BitDepth = chunkIHDR.Data[8]
+	header.ColorType = chunkIHDR.Data[9]
+	header.Compression = chunkIHDR.Data[10]
+	header.Filter = chunkIHDR.Data[11]
+	header.Interlace = chunkIHDR.Data[12]
+	return header, nil
 }
