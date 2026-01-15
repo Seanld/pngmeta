@@ -6,13 +6,15 @@ import (
 	"io"
 )
 
-// A collection of chunks with common operations.
+// A collection of PNG data/metadata chunks and associated useful operations.
 type PNG struct {
 	begin []Chunk
 	data []Chunk
 	end []Chunk
 }
 
+// Read serialized PNG from given reader into regions of chunks
+// to be operated on or queried.
 func LoadPNG(r io.Reader) (*PNG, error) {
 	chunks, err := ReadChunks(r)
 	if err != nil { return nil, err }
@@ -51,6 +53,7 @@ func LoadPNG(r io.Reader) (*PNG, error) {
 	return p, nil
 }
 
+// Return chunks of all regions as one single, contiguous chunk slice.
 func (p *PNG) Chunks() []Chunk {
 	chunks := make([]Chunk, len(p.begin) + len(p.data) + len(p.end))
 	dataStart := len(p.begin)
@@ -64,12 +67,17 @@ func (p *PNG) Chunks() []Chunk {
 type Region = uint8
 
 const (
+	// Represents pre-data-chunk region (usually metadata chunks).
 	RegionBegin Region = iota
+	// Represents data region (exclusively IDAT chunks).
 	RegionData
+	// Represents post-data-chunk region (usually just IEND chunk).
 	RegionEnd
 )
 
-func (p *PNG) AddChunk(chunkType uint32, data []byte, region Region) error {
+// Insert a chunk of the given type, containing the given data bytes,
+// into the given region.
+func (p *PNG) InsertChunk(chunkType uint32, data []byte, region Region) error {
 	// Ensure chunk data fits within PNG spec length limit.
 	if len(data) > ((1 << 31) - 1) {
 		return fmt.Errorf("Chunk data exceeds length limit of 2^31-1 bytes")
@@ -101,6 +109,7 @@ func (p *PNG) AddChunk(chunkType uint32, data []byte, region Region) error {
 	return nil
 }
 
+// Return the chunk slice corresponding to the given region.
 func (p *PNG) RegionSlice(region Region) []Chunk {
 	switch region {
 	case RegionBegin:
@@ -126,11 +135,11 @@ func (p *PNG) SetChunk(chunkType uint32, data []byte, region Region) error {
 		}
 	}
 
-	return p.AddChunk(chunkType, data, region)
+	return p.InsertChunk(chunkType, data, region)
 }
 
-// Return the first chunk matching the given type code.
-func (p *PNG) GetChunk(chunkType uint32, region Region) (Chunk, error) {
+// Return the first chunk matching the given type code within the given region.
+func (p *PNG) FirstChunkOfType(chunkType uint32, region Region) (Chunk, error) {
 	regionSlice := p.RegionSlice(region)
 
 	for _, c := range regionSlice {
@@ -142,8 +151,8 @@ func (p *PNG) GetChunk(chunkType uint32, region Region) (Chunk, error) {
 	return Chunk{}, fmt.Errorf("Region does not contain a %s chunk", IntToChunkType(chunkType))
 }
 
-// Return all chunks which match a given type code.
-func (p *PNG) GetChunks(chunkType uint32, region Region) (matched []Chunk) {
+// Return all chunks which match a given type code within the given region.
+func (p *PNG) FilterChunks(chunkType uint32, region Region) (matched []Chunk) {
 	regionSlice := p.RegionSlice(region)
 
 	for _, c := range regionSlice {

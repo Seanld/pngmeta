@@ -9,6 +9,7 @@ import (
 	"slices"
 )
 
+// Attempt to read the PNG signature bytes from `r`.
 func readSignature(r io.Reader) error {
 	// First, verify signature.
 	signature := make([]byte, 8)
@@ -62,6 +63,7 @@ func ReadChunks(r io.Reader) (chunks []Chunk, err error) {
 	return
 }
 
+// Read a single chunk from `r`, using `hasher` which must be an IEEE CRC-32 instance.
 func ReadChunk(r io.Reader, hasher hash.Hash32) (c Chunk, err error) {
 	// Read chunk data length.
 	if err = binary.Read(r, binary.BigEndian, &c.Length); err != nil {
